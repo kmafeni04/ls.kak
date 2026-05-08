@@ -506,6 +506,7 @@ provide-module tree %{
 
     evaluate-commands %sh{
       echo "add-highlighter -override window/ regex '^($kak_opt__tree_copied_indicator)' 1:red"
+      echo "add-highlighter -override window/ regex '^($kak_opt__tree_selected_indicator)' 1:cyan"
     }
 
     hook window RawKey .* %{
