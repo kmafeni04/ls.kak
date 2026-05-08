@@ -452,6 +452,38 @@ provide-module tree %{
     }
   }
 
+  define-command tree-copy-path %{
+    evaluate-commands %sh{
+      cd "$kak_opt__tree_current_dir"
+      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
+        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
+      fi
+
+      echo "set-register dquote '$kak_opt__tree_current_dir/$current_file'"
+    }
+  }
+
+  define-command tree-copy-name %{
+    evaluate-commands %sh{
+      cd "$kak_opt__tree_current_dir"
+      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
+        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
+      fi
+
+      echo "set-register dquote '$current_file'"
+    }
+  }
+
+  define-command tree-copy-directory %{
+    evaluate-commands %sh{
+      echo "set-register dquote '$kak_opt__tree_current_dir'"
+    }
+  }
+
   hook global WinSetOption filetype=tree %{
     set-option window modelinefmt ''
 

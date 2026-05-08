@@ -13,7 +13,7 @@ Copy [tree.kak](./tree.kak) into your autoload directory
 ## Usage
 Run either `:tree-open` or `:tree-toggle` to get started
 
-## Suggested Keymap
+## Suggested Hook
 ```kak
 hook global WinSetOption filetype=tree %{
   try %{
@@ -29,8 +29,15 @@ hook global WinSetOption filetype=tree %{
   map window normal x ":tree-cut<ret>"
   map window normal p ":tree-paste<ret>"
   map window normal r ":tree-rename<ret>"
-  map window normal c ":tree-cd<ret>"
-  map window normal <esc> ":tree-clear-copy<ret>"
+  map window normal <tab> ":tree-cd<ret>"
+  map window normal <esc> ":tree-clear<ret>"
+  map window normal s ":tree-toggle-select<ret>"
+
+  declare-user-mode tree-copy-info # Copy focused file's info to default yank/paste register
+  map window normal c ":enter-user-mode tree-copy-info<ret>"
+  map window tree-copy-info p ":tree-copy-path<ret>"
+  map window tree-copy-info n ":tree-copy-name<ret>"
+  map window tree-copy-info d ":tree-copy-directory<ret>"
 }
 ```
 
