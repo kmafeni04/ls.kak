@@ -3,11 +3,13 @@ provide-module tree %{
   declare-option -hidden str _tree_ui_cmd "echo '../'; tree -a --noreport --dirsfirst -L 1 --compress 2 -F"
   declare-option -hidden str _tree_jump_client "treejumpclient"
   declare-option -hidden str _tree_client "treeclient"
+  declare-option -hidden str-list _tree_selected_filepaths
   declare-option -hidden str _tree_selected_indicator "\+"
   declare-option -hidden str _tree_selected_filepaths_sep ":__:"
-  declare-option -hidden str-list _tree_selected_filepaths
+  declare-option -hidden int _tree_selected_count
   declare-option -hidden str-list _tree_copied_filepaths
   declare-option -hidden str _tree_copied_action
+  declare-option -hidden int _tree_copied_count
   declare-option -hidden str _tree_copied_indicator "\*"
   declare-option -hidden str _tree_hline_face "default,default+@SecondarySelection"
 
@@ -186,7 +188,13 @@ provide-module tree %{
 
   define-command tree-delete -docstring 'Delete a file' %{
     _tree-assert-buffer
-    prompt "Delete file(s)? [y/n]:" %{
+    prompt %sh{
+      count=$kak_opt__tree_selected_count
+      [ $count -eq 0 ] && count=1
+      files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
+      printf "Delete %s? [y/n]:" "$count $files"
+    } \
+    %{
       evaluate-commands %sh{
         if [ ! "$kak_text" = "y" ] || [ ! "$kak_text" = "Y"]; then
           exit
@@ -220,6 +228,11 @@ provide-module tree %{
             current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
           fi
 
+          if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
+            echo "fail 'Cannot delete ./ or ../'"
+            exit
+          fi
+
           remove_file "$current_file"
         fi
       }
@@ -239,7 +252,7 @@ provide-module tree %{
       fi
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        echo "fail 'Cannot copy ./ or ../'"
+        echo "fail 'Cannot select ./ or ../'"
         exit
       fi
 
@@ -248,20 +261,21 @@ provide-module tree %{
       SEP="$kak_opt__tree_selected_filepaths_sep"
 
       paths="$kak_opt__tree_selected_filepaths"
-      if echo "$kak_opt__tree_selected_filepaths" | grep -q "$current_file$SEP"; then
-        paths="$(echo "$kak_opt__tree_selected_filepaths" | sed "s|$current_file$SEP||")"
+      if printf '%s' "$paths" | grep -q "$current_file$SEP"; then
+        paths="$(echo "$paths" | sed "s|$current_file$SEP||")"
       else
         paths="$current_file${SEP}$paths"
       fi
 
       echo "set-option window _tree_selected_filepaths '$paths'"
-      count="$(echo "$paths" | sed "s|$kak_opt__tree_selected_filepaths_sep|\n|g" | wc -l)"
-      count=$((count - 1))
+      count="$(printf '%s' "$paths" | sed "s|$SEP|\n|g" | wc -l)"
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       if [ $count -gt 0 ]; then
-        echo "set-option window modelinefmt 'Selected $count $files'"
+        echo "set-option window modelinefmt '$count $files selected'"
+        echo "set-option window _tree_selected_count $count"
       else
         echo "set-option window modelinefmt ''"
+        echo "set-option window _tree_selected_count 0"
       fi
     }
     tree-redraw
@@ -283,9 +297,12 @@ provide-module tree %{
 
       if [ -n "$kak_opt__tree_selected_filepaths" ]; then
         echo "set-option window _tree_copied_filepaths '$kak_opt__tree_selected_filepaths'"
+        echo "set-option window _tree_copied_count $kak_opt__tree_selected_count"
         echo "set-option window _tree_selected_filepaths ''"
+        echo "set-option window _tree_selected_count 0"
       else
         echo "set-option window _tree_copied_filepaths '$kak_opt__tree_current_dir/${current_file}$kak_opt__tree_selected_filepaths_sep'"
+        echo "set-option window _tree_copied_count 1"
       fi
       echo "set-option window _tree_copied_action '$1'"
     }
@@ -295,13 +312,20 @@ provide-module tree %{
   define-command tree-copy -docstring 'Copy a file to be pasted later' %{
     _tree-assert-buffer
     _tree-get-copy-cut-path "copy"
-    set-option window modelinefmt 'File(s) copied'
+    set-option window modelinefmt %sh{
+      files="$([ $kak_opt__tree_copied_count -gt 1 ] && echo 'files' || echo 'file')"
+      printf "%s copied" "$kak_opt__tree_copied_count $files"
+    }
   }
 
   define-command tree-cut -docstring 'Cut a file to be pasted later' %{
     _tree-assert-buffer
     _tree-get-copy-cut-path "cut"
-    set-option window modelinefmt 'File(s) cut'
+    # set-option window modelinefmt "Cut %opt{_tree_copied_count} file(s)"
+    set-option window modelinefmt %sh{
+      files="$([ $kak_opt__tree_copied_count -gt 1 ] && echo 'files' || echo 'file')"
+      printf "%s cut" "$kak_opt__tree_copied_count $files"
+    }
   }
 
   define-command tree-paste -docstring 'Paste a file that was copied or cut' %{
@@ -380,7 +404,9 @@ provide-module tree %{
   define-command tree-clear -docstring 'Clear selections if they exist' %{
     _tree-assert-buffer
     set-option window _tree_selected_filepaths ''
+    set-option window _tree_selected_count 0
     set-option window _tree_copied_filepaths ''
+    set-option window _tree_copied_count 0
     set-option window _tree_copied_action ''
     set-option window modelinefmt ''
     tree-redraw
