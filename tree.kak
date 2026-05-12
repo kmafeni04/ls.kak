@@ -463,7 +463,9 @@ provide-module tree %{
     }
   }
 
-  define-command tree-cd -docstring 'Change directory of filetree. if <directory> is provided, cd there or open prompt selection' -params ..1 %{
+  define-command tree-cd -params ..1 \
+  -docstring 'tree-cd: [<directory>]: Change <directory> of filetree. if <directory> is provided, cd there or open prompt' \
+  %{
     _tree-assert-buffer
     evaluate-commands -save-regs 'd' %{
       set-register d %sh{pwd}
@@ -473,6 +475,31 @@ provide-module tree %{
           echo "_tree-cd-impl '$1' '$kak_reg_d'"
         else
           echo "_tree-cd-prompt '$kak_reg_d'"
+        fi
+      }
+    }
+  }
+
+  define-command tree-run -params .. \
+  -docstring 'tree-run [<command>]: Run <command> in current tree directory. if <command> is provided, run it or open prompt' \
+  %{
+    _tree-assert-buffer
+    evaluate-commands -save-regs 'd' %{
+      set-register d %sh{pwd}
+      change-directory %opt{_tree_current_dir}
+      evaluate-commands %sh{
+        if [ -n "$1" ]; then
+          $@ > /dev/null
+          printf 'change-directory "%s"\n' "$kak_reg_d"
+          printf "tree-redraw\n"
+        else
+          printf 'prompt -shell-completion "Command:" %%{
+            nop %%sh{
+              eval "$kak_text"
+            }
+            change-directory "%s"
+            tree-redraw
+          }\n' "$kak_reg_d"
         fi
       }
     }
@@ -541,7 +568,7 @@ provide-module tree %{
   }
 
   hook global ClientClose %opt{_tree_client} %{
-    tree-disable
+    try %{ tree-disable }
   }
 }
 

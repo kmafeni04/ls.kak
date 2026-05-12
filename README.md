@@ -16,10 +16,7 @@ Run either `:tree-open` or `:tree-toggle` to get started
 ## Suggested Hook
 ```kak
 hook global WinSetOption filetype=tree %{
-  try %{
-    remove-highlighter window/wrap
-  }
-
+  try %{ remove-highlighter window/wrap }
   map window normal <ret> ":tree-open<ret>"
   map window normal l ":tree-open<ret>"
   map window normal h "gg:tree-open<ret>"
@@ -33,7 +30,7 @@ hook global WinSetOption filetype=tree %{
   map window normal <esc> ":tree-clear<ret>"
   map window normal s ":tree-toggle-select<ret>"
 
-  declare-user-mode tree-copy-info # Copy focused file's info to default yank/paste register
+  try %{ declare-user-mode tree-copy-info } # Copy focused file's info to default yank/paste register
   map window normal c ":enter-user-mode tree-copy-info<ret>"
   map window tree-copy-info p ":tree-copy-path<ret>"
   map window tree-copy-info n ":tree-copy-name<ret>"
