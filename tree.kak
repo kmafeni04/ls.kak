@@ -421,6 +421,11 @@ provide-module tree %{
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
+
+      if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
+        echo "fail 'Cannot rename ./ or ../'"
+        exit
+      fi
       echo "set-register f '$current_file'"
     }
     evaluate-commands -save-regs 'f' %{
