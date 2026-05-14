@@ -1,6 +1,7 @@
 provide-module tree %{
   declare-option -hidden str _tree_current_dir "."
-  declare-option -hidden str _tree_ui_cmd "echo '../'; tree -a --noreport --dirsfirst -L 1 --compress 2 -F"
+  declare-option -hidden str _tree_cmd \
+    "echo '../'; tree -a --noreport --dirsfirst -L 1 --compress 2 -F | sed -E 's|(.+)( -> .+/)|\1/\2|g;s;[=\*>\|]$;;g'"
   declare-option -hidden str _tree_jump_client "treejumpclient"
   declare-option -hidden str _tree_client "treeclient"
   declare-option -hidden str-list _tree_selected_filepaths
@@ -37,10 +38,7 @@ provide-module tree %{
       fi
       cd "$kak_opt__tree_current_dir"
 
-      ui_tree="$(
-        eval "$kak_opt__tree_ui_cmd" |
-        sed -E "2s|\.|$(basename "$kak_opt__tree_current_dir")|;s|(.+)( -> .+/)|\1/\2|g;s:[=\*>\|]$::g"
-      )"
+      ui_tree="$(eval "$kak_opt__tree_cmd" | sed -E "2s;\.;$(basename "$kak_opt__tree_current_dir");")"
 
       if [ -n "$kak_opt__tree_copied_filepaths" ]; then
         array="$kak_opt__tree_copied_filepaths"
@@ -147,7 +145,7 @@ provide-module tree %{
       }
 
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
@@ -221,7 +219,7 @@ provide-module tree %{
           done
         else
           cd "$kak_opt__tree_current_dir"
-          ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+          ui_tree="$(eval "$kak_opt__tree_cmd")"
 
           current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
           if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
@@ -233,7 +231,7 @@ provide-module tree %{
             exit
           fi
 
-          remove_file "$current_file"
+          remove_file "$kak_opt__tree_current_dir/$current_file"
         fi
       }
       tree-clear
@@ -245,7 +243,7 @@ provide-module tree %{
     _tree-assert-buffer
     evaluate-commands %sh{
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
@@ -284,7 +282,7 @@ provide-module tree %{
   define-command -hidden _tree-get-copy-cut-path -params 1 %{
     evaluate-commands %sh{
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
@@ -334,7 +332,7 @@ provide-module tree %{
       [ -z "$kak_opt__tree_copied_filepaths" ] && exit
 
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
 
       copy() {
         local src="$1"
@@ -416,7 +414,7 @@ provide-module tree %{
     _tree-assert-buffer
     evaluate-commands %sh{
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
@@ -513,7 +511,7 @@ provide-module tree %{
   define-command tree-copy-path %{
     evaluate-commands %sh{
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
@@ -526,7 +524,7 @@ provide-module tree %{
   define-command tree-copy-name %{
     evaluate-commands %sh{
       cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval $kak_opt__tree_ui_cmd)"
+      ui_tree="$(eval "$kak_opt__tree_cmd")"
       current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
