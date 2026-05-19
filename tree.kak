@@ -1,136 +1,136 @@
-provide-module tree %{
-  declare-option -hidden str _tree_current_dir "."
-  declare-option -hidden str _tree_cmd \
-    "echo '../'; tree -a --noreport --dirsfirst -L 1 --compress 2 -F | sed -E 's|(.+)( -> .+/)|\1/\2|g;s;[=\*>\|]$;;g'"
-  declare-option -hidden str _tree_jump_client "treejumpclient"
-  declare-option -hidden str _tree_client "treeclient"
-  declare-option -hidden str-list _tree_selected_filepaths
-  declare-option -hidden str _tree_selected_indicator "\+"
-  declare-option -hidden str _tree_selected_filepaths_sep ":__:"
-  declare-option -hidden int _tree_selected_count
-  declare-option -hidden str-list _tree_copied_filepaths
-  declare-option -hidden str _tree_copied_action
-  declare-option -hidden int _tree_copied_count
-  declare-option -hidden str _tree_copied_indicator "\*"
-  declare-option -hidden str _tree_hline_face "default,default+@SecondarySelection"
+provide-module ls %{
+  declare-option -hidden str _ls_current_dir "."
+  declare-option -hidden str _ls_cmd \
+    "echo '../'; printf '%%s\n' ""$(basename ""$(pwd)"")/""; ls --group-directories-first -1 -A -L -p | sed -E 's|^|  |'"
+  declare-option -hidden str _ls_jump_client "lsjumpclient"
+  declare-option -hidden str _ls_client "lsclient"
+  declare-option -hidden str-list _ls_selected_filepaths
+  declare-option -hidden str _ls_selected_indicator "\+"
+  declare-option -hidden str _ls_selected_filepaths_sep ":__:"
+  declare-option -hidden int _ls_selected_count
+  declare-option -hidden str-list _ls_copied_filepaths
+  declare-option -hidden str _ls_copied_action
+  declare-option -hidden int _ls_copied_count
+  declare-option -hidden str _ls_copied_indicator "\*"
+  declare-option -hidden str _ls_hline_face "default,default+@SecondarySelection"
 
-  define-command -hidden _tree-assert-buffer %{
+  define-command -hidden _ls-assert-buffer %{
     evaluate-commands %sh{
-      if [ ! "$kak_bufname" = "*tree*" ]; then
-        echo "fail 'Not in "*tree*" buffer'"
+      if [ ! "$kak_bufname" = "*ls*" ]; then
+        echo "fail 'Not in "*ls*" buffer'"
       fi
     }
   }
 
-  define-command -hidden _tree-hline %{
-    set-face window PrimaryCursor %opt{_tree_hline_face}
-    set-face window PrimaryCursorEol %opt{_tree_hline_face}
+  define-command -hidden _ls-hline %{
+    set-face window PrimaryCursor %opt{_ls_hline_face}
+    set-face window PrimaryCursorEol %opt{_ls_hline_face}
     try %{ remove-highlighter window/hlline }
-    try %{ add-highlighter window/hlline line %val{cursor_line} %opt{_tree_hline_face} }
+    try %{ add-highlighter window/hlline line %val{cursor_line} %opt{_ls_hline_face} }
   }
 
-  define-command tree-redraw -docstring 'Redraw the filetree' -params ..1 %{
-    _tree-assert-buffer
+  define-command ls-redraw -docstring 'Redraw the filels' -params ..1 %{
+    _ls-assert-buffer
     evaluate-commands -save-regs 'c' %sh{
       if [ -n "$1" ]; then
-        kak_opt__tree_current_dir="$1"
-        echo "set-option window _tree_current_dir '$1'"
+        kak_opt__ls_current_dir="$1"
+        echo "set-option window _ls_current_dir '$1'"
       fi
-      cd "$kak_opt__tree_current_dir"
+      cd "$kak_opt__ls_current_dir"
 
-      ui_tree="$(eval "$kak_opt__tree_cmd" | sed -E "2s;\.;$(basename "$kak_opt__tree_current_dir");")"
+      ui="$(eval "$kak_opt__ls_cmd")"
 
-      if [ -n "$kak_opt__tree_copied_filepaths" ]; then
-        array="$kak_opt__tree_copied_filepaths"
+      if [ -n "$kak_opt__ls_copied_filepaths" ]; then
+        array="$kak_opt__ls_copied_filepaths"
         while [ -n "$array" ]; do
-          path="${array%%$kak_opt__tree_selected_filepaths_sep*}"
+          path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
           [ "$path" = "$array" ] && break
-          if [ "$kak_opt__tree_current_dir" = "$(dirname "$path")" ]; then
-            ui_tree="$(echo "$ui_tree" | sed -E "s|^.(.+ $(basename "$path"))|$kak_opt__tree_copied_indicator\1|")"
+          if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
+            ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_copied_indicator\1|")"
           fi
 
           array="${array#*:__:}"
         done
       fi
 
-      if [ -n "$kak_opt__tree_selected_filepaths" ]; then
-        array="$kak_opt__tree_selected_filepaths"
+      if [ -n "$kak_opt__ls_selected_filepaths" ]; then
+        array="$kak_opt__ls_selected_filepaths"
         while [ -n "$array" ]; do
-          path="${array%%$kak_opt__tree_selected_filepaths_sep*}"
+          path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
           [ "$path" = "$array" ] && break
-          if [ "$kak_opt__tree_current_dir" = "$(dirname "$path")" ]; then
-            ui_tree="$(echo "$ui_tree" | sed -E "s|^.(.+ $(basename "$path"))|$kak_opt__tree_selected_indicator\1|")"
+          if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
+            ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_selected_indicator\1|")"
           fi
 
           array="${array#*:__:}"
         done
       fi
 
-      echo "set-register c '$ui_tree'"
+      echo "set-register c '$ui'"
       echo "execute-keys '%%<dquote>cR:select $kak_selection_desc<ret>'"
     }
-    _tree-hline
+    _ls-hline
   }
 
-  define-command -hidden _tree-enable-impl -params 1 %{
-      edit -scratch -debug "*tree*"
-      set-option window filetype tree
-      rename-client "%opt{_tree_client}"
+  define-command -hidden _ls-enable-impl -params 1 %{
+      edit -scratch -debug "*ls*"
+      set-option window filetype ls
+      rename-client "%opt{_ls_client}"
       execute-keys "gg"
-      tree-redraw %arg{1}
+      ls-redraw %arg{1}
   }
 
-  define-command tree-enable -docstring 'Open the filetree' %{
+  define-command ls-enable -docstring 'Open the filebrowser' %{
     try %{
-      tree-disable
+      ls-disable
     }
-    set-option global _tree_jump_client "%val{client}"
+    set-option global _ls_jump_client "%val{client}"
     evaluate-commands %sh{
       dir=
       [ -f "$kak_buffile" ] && dir="$(dirname "$kak_buffile")" || dir="$PWD"
       if [ -n "$TMUX" ]; then
-        tmux split-window -l "20%" -h -b "kak -c $kak_session -e '_tree-enable-impl %{$dir}'" > /dev/null
+        tmux split-window -l "20%" -h -b "kak -c $kak_session -e '_ls-enable-impl %{$dir}'" > /dev/null
       else
-        echo "new '_tree-enable-impl %{$dir}'"
+        echo "new '_ls-enable-impl %{$dir}'"
       fi
     }
   }
 
-  define-command tree-disable -docstring 'Close the filetree' %{
-    try %{ delete-buffer "*tree*" } catch %{ fail }
-    try %{ evaluate-commands -client %opt{_tree_client} quit }
+  define-command ls-disable -docstring 'Close the filels' %{
+    try %{ delete-buffer "*ls*" } catch %{ fail }
+    try %{ evaluate-commands -client %opt{_ls_client} quit }
   }
 
-  define-command tree-toggle -docstring 'Toggle visibility of filetree' %{
+  define-command ls-toggle -docstring 'Toggle visibility of filels' %{
     try %{
-      tree-disable
+      ls-disable
     } catch %{
-      tree-enable
+      ls-enable
     }
   }
 
-  define-command tree-open -docstring 'Open a file' %{
-    _tree-assert-buffer
+  define-command ls-open -docstring 'Open a file' %{
+    _ls-assert-buffer
     evaluate-commands %sh{
       open(){
         local filepath="$1"
 
         if [ -d "$filepath" ]; then
           cd "$filepath"
-          echo "set-option window _tree_current_dir \"$PWD\""
+          echo "set-option window _ls_current_dir \"$PWD\""
           echo "execute-keys gg"
         elif [ -f "$filepath" ]; then
-          filepath="$kak_opt__tree_current_dir/$filepath"
+          filepath="$kak_opt__ls_current_dir/$filepath"
 
-          if [ -n "$(echo "$kak_client_list" | grep -o "$kak_opt__tree_jump_client")" ]; then
-            echo "evaluate-commands -client $kak_opt__tree_jump_client %{ edit -existing "$filepath" }" | kak -p $kak_session
+          if [ -n "$(echo "$kak_client_list" | grep -o "$kak_opt__ls_jump_client")" ]; then
+            echo "evaluate-commands -client $kak_opt__ls_jump_client %{ edit -existing "$filepath" }" | kak -p $kak_session
             if [ -n "$TMUX" ]; then
-              echo "focus $kak_opt__tree_jump_client"
+              echo "focus $kak_opt__ls_jump_client"
             fi
           else
-            cmd="kak -c $kak_session -e 'edit -existing "$filepath"; rename-client "$kak_opt__tree_jump_client"'"
+            cmd="kak -c $kak_session -e 'edit -existing "$filepath"; rename-client "$kak_opt__ls_jump_client"'"
             if [ -n "$TMUX" ]; then
               tmux split-window -c "$dir" -l "80%" -h "$cmd" > /dev/null
             elif [ -n "$kak_opt_termcmd" ]; then
@@ -144,9 +144,9 @@ provide-module tree %{
         fi
       }
 
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         original="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
@@ -155,22 +155,22 @@ provide-module tree %{
           open "$target"
         elif [ -d "$target" ]; then
           cd "$original"
-          echo "set-option window _tree_current_dir \"$PWD\""
+          echo "set-option window _ls_current_dir \"$PWD\""
           echo "execute-keys gg"
         fi
       else
         open "$current_file"
       fi
     }
-    tree-redraw
+    ls-redraw
   }
 
-  define-command tree-create -docstring 'Create a file' %{
-    _tree-assert-buffer
+  define-command ls-create -docstring 'Create a file' %{
+    _ls-assert-buffer
     evaluate-commands %{
       prompt "Create:" %{
         evaluate-commands %sh{
-          cd "$kak_opt__tree_current_dir"
+          cd "$kak_opt__ls_current_dir"
           if [ -n "$(echo "$kak_text" | grep '.*/')" ]; then
             mkdir -p "$kak_text"
           else
@@ -179,15 +179,15 @@ provide-module tree %{
             touch "$kak_text"
           fi
         }
-        tree-redraw
+        ls-redraw
       }
     }
   }
 
-  define-command tree-delete -docstring 'Delete a file' %{
-    _tree-assert-buffer
+  define-command ls-delete -docstring 'Delete a file' %{
+    _ls-assert-buffer
     prompt %sh{
-      count=$kak_opt__tree_selected_count
+      count=$kak_opt__ls_selected_count
       [ $count -eq 0 ] && count=1
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       printf "Delete %s? [y/n]:" "$count $files"
@@ -206,10 +206,10 @@ provide-module tree %{
           fi
         }
 
-        if [ -n "$kak_opt__tree_selected_filepaths" ]; then
-          array="$kak_opt__tree_selected_filepaths"
+        if [ -n "$kak_opt__ls_selected_filepaths" ]; then
+          array="$kak_opt__ls_selected_filepaths"
           while [ -n "$array" ]; do
-            path="${array%%$kak_opt__tree_selected_filepaths_sep*}"
+            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
             [ "$path" = "$array" ] && break
 
@@ -218,10 +218,10 @@ provide-module tree %{
             array="${array#*:__:}"
           done
         else
-          cd "$kak_opt__tree_current_dir"
-          ui_tree="$(eval "$kak_opt__tree_cmd")"
+          cd "$kak_opt__ls_current_dir"
+          ui="$(eval "$kak_opt__ls_cmd")"
 
-          current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+          current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
           if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
             current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
           fi
@@ -231,20 +231,20 @@ provide-module tree %{
             exit
           fi
 
-          remove_file "$kak_opt__tree_current_dir/$current_file"
+          remove_file "$kak_opt__ls_current_dir/$current_file"
         fi
       }
-      tree-clear
-      tree-redraw
+      ls-clear
+      ls-redraw
     }
   }
 
-  define-command tree-toggle-select %{
-    _tree-assert-buffer
+  define-command ls-toggle-select %{
+    _ls-assert-buffer
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
@@ -254,36 +254,36 @@ provide-module tree %{
         exit
       fi
 
-      current_file="$kak_opt__tree_current_dir/$current_file"
+      current_file="$kak_opt__ls_current_dir/$current_file"
 
-      SEP="$kak_opt__tree_selected_filepaths_sep"
+      SEP="$kak_opt__ls_selected_filepaths_sep"
 
-      paths="$kak_opt__tree_selected_filepaths"
+      paths="$kak_opt__ls_selected_filepaths"
       if printf '%s' "$paths" | grep -q "$current_file$SEP"; then
         paths="$(echo "$paths" | sed "s|$current_file$SEP||")"
       else
         paths="$current_file${SEP}$paths"
       fi
 
-      echo "set-option window _tree_selected_filepaths '$paths'"
+      echo "set-option window _ls_selected_filepaths '$paths'"
       count="$(printf '%s' "$paths" | sed "s|$SEP|\n|g" | wc -l)"
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       if [ $count -gt 0 ]; then
         echo "set-option window modelinefmt '$count $files selected'"
-        echo "set-option window _tree_selected_count $count"
+        echo "set-option window _ls_selected_count $count"
       else
         echo "set-option window modelinefmt ''"
-        echo "set-option window _tree_selected_count 0"
+        echo "set-option window _ls_selected_count 0"
       fi
     }
-    tree-redraw
+    ls-redraw
   }
 
-  define-command -hidden _tree-get-copy-cut-path -params 1 %{
+  define-command -hidden _ls-get-copy-cut-path -params 1 %{
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
@@ -293,46 +293,46 @@ provide-module tree %{
         exit
       fi
 
-      if [ -n "$kak_opt__tree_selected_filepaths" ]; then
-        echo "set-option window _tree_copied_filepaths '$kak_opt__tree_selected_filepaths'"
-        echo "set-option window _tree_copied_count $kak_opt__tree_selected_count"
-        echo "set-option window _tree_selected_filepaths ''"
-        echo "set-option window _tree_selected_count 0"
+      if [ -n "$kak_opt__ls_selected_filepaths" ]; then
+        echo "set-option window _ls_copied_filepaths '$kak_opt__ls_selected_filepaths'"
+        echo "set-option window _ls_copied_count $kak_opt__ls_selected_count"
+        echo "set-option window _ls_selected_filepaths ''"
+        echo "set-option window _ls_selected_count 0"
       else
-        echo "set-option window _tree_copied_filepaths '$kak_opt__tree_current_dir/${current_file}$kak_opt__tree_selected_filepaths_sep'"
-        echo "set-option window _tree_copied_count 1"
+        echo "set-option window _ls_copied_filepaths '$kak_opt__ls_current_dir/${current_file}$kak_opt__ls_selected_filepaths_sep'"
+        echo "set-option window _ls_copied_count 1"
       fi
-      echo "set-option window _tree_copied_action '$1'"
+      echo "set-option window _ls_copied_action '$1'"
     }
-    tree-redraw
+    ls-redraw
   }
 
-  define-command tree-copy -docstring 'Copy a file to be pasted later' %{
-    _tree-assert-buffer
-    _tree-get-copy-cut-path "copy"
+  define-command ls-copy -docstring 'Copy a file to be pasted later' %{
+    _ls-assert-buffer
+    _ls-get-copy-cut-path "copy"
     set-option window modelinefmt %sh{
-      files="$([ $kak_opt__tree_copied_count -gt 1 ] && echo 'files' || echo 'file')"
-      printf "%s copied" "$kak_opt__tree_copied_count $files"
+      files="$([ $kak_opt__ls_copied_count -gt 1 ] && echo 'files' || echo 'file')"
+      printf "%s copied" "$kak_opt__ls_copied_count $files"
     }
   }
 
-  define-command tree-cut -docstring 'Cut a file to be pasted later' %{
-    _tree-assert-buffer
-    _tree-get-copy-cut-path "cut"
-    # set-option window modelinefmt "Cut %opt{_tree_copied_count} file(s)"
+  define-command ls-cut -docstring 'Cut a file to be pasted later' %{
+    _ls-assert-buffer
+    _ls-get-copy-cut-path "cut"
+    # set-option window modelinefmt "Cut %opt{_ls_copied_count} file(s)"
     set-option window modelinefmt %sh{
-      files="$([ $kak_opt__tree_copied_count -gt 1 ] && echo 'files' || echo 'file')"
-      printf "%s cut" "$kak_opt__tree_copied_count $files"
+      files="$([ $kak_opt__ls_copied_count -gt 1 ] && echo 'files' || echo 'file')"
+      printf "%s cut" "$kak_opt__ls_copied_count $files"
     }
   }
 
-  define-command tree-paste -docstring 'Paste a file that was copied or cut' %{
-    _tree-assert-buffer
+  define-command ls-paste -docstring 'Paste a file that was copied or cut' %{
+    _ls-assert-buffer
     evaluate-commands %sh{
-      [ -z "$kak_opt__tree_copied_filepaths" ] && exit
+      [ -z "$kak_opt__ls_copied_filepaths" ] && exit
 
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
 
       copy() {
         local src="$1"
@@ -344,9 +344,9 @@ provide-module tree %{
         fi
       }
 
-      array="$kak_opt__tree_copied_filepaths"
+      array="$kak_opt__ls_copied_filepaths"
       while [ -n "$array" ]; do
-        path="${array%%$kak_opt__tree_selected_filepaths_sep*}"
+        path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
         [ "$path" = "$array" ] && break
 
@@ -377,16 +377,16 @@ provide-module tree %{
           fi
         done
 
-        dest="$kak_opt__tree_current_dir/$new_name"
+        dest="$kak_opt__ls_current_dir/$new_name"
 
-        if [ "$path" = "$kak_opt__tree_current_dir/" ]; then
+        if [ "$path" = "$kak_opt__ls_current_dir/" ]; then
           echo "fail 'Cannot copy/move into self'"
           exit
         fi
 
-        if [ "$kak_opt__tree_copied_action" = "copy" ]; then
+        if [ "$kak_opt__ls_copied_action" = "copy" ]; then
           copy "$path" "$dest"
-        elif [ "$kak_opt__tree_copied_action" = "cut" ]; then
+        elif [ "$kak_opt__ls_copied_action" = "cut" ]; then
           mv "$path" "$dest"
         fi
         if [ $? -ne 0 ]; then
@@ -395,27 +395,27 @@ provide-module tree %{
         fi
       done
     }
-    tree-clear
-    tree-redraw
+    ls-clear
+    ls-redraw
   }
 
-  define-command tree-clear -docstring 'Clear selections if they exist' %{
-    _tree-assert-buffer
-    set-option window _tree_selected_filepaths ''
-    set-option window _tree_selected_count 0
-    set-option window _tree_copied_filepaths ''
-    set-option window _tree_copied_count 0
-    set-option window _tree_copied_action ''
+  define-command ls-clear -docstring 'Clear selections if they exist' %{
+    _ls-assert-buffer
+    set-option window _ls_selected_filepaths ''
+    set-option window _ls_selected_count 0
+    set-option window _ls_copied_filepaths ''
+    set-option window _ls_copied_count 0
+    set-option window _ls_copied_action ''
     set-option window modelinefmt ''
-    tree-redraw
+    ls-redraw
   }
 
-  define-command tree-rename -docstring 'Rename a file' %{
-    _tree-assert-buffer
+  define-command ls-rename -docstring 'Rename a file' %{
+    _ls-assert-buffer
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
@@ -429,18 +429,18 @@ provide-module tree %{
     evaluate-commands -save-regs 'f' %{
       prompt -init "%reg{f}" "Rename:" %{
         evaluate-commands %sh{
-        cd "$kak_opt__tree_current_dir"
+        cd "$kak_opt__ls_current_dir"
           mv "$kak_reg_f" "$kak_text"
           [ $? -ne 0 ] && echo "fail 'Could not rename file'"
         }
-        tree-redraw
+        ls-redraw
       }
     }
   }
 
-  define-command -hidden _tree-cd-impl -params 2 %{
+  define-command -hidden _ls-cd-impl -params 2 %{
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
+      cd "$kak_opt__ls_current_dir"
 
       dir="$1"
       ret_dir="$2"
@@ -455,77 +455,77 @@ provide-module tree %{
         exit
       fi
 
-      echo "set-option window _tree_current_dir '$PWD'"
+      echo "set-option window _ls_current_dir '$PWD'"
     }
-    tree-redraw
+    ls-redraw
   }
 
-  define-command -hidden _tree-cd-prompt -params 1 %{
+  define-command -hidden _ls-cd-prompt -params 1 %{
     prompt -on-abort 'change-directory %arg{1}' -menu -file-completion "Directory:" %{
-      _tree-cd-impl "%val{text}" "%arg{1}"
+      _ls-cd-impl "%val{text}" "%arg{1}"
     }
   }
 
-  define-command tree-cd -params ..1 \
-  -docstring 'tree-cd: [<directory>]: Change <directory> of filetree. if <directory> is provided, cd there or open prompt' \
+  define-command ls-cd -params ..1 \
+  -docstring 'ls-cd: [<directory>]: Change <directory> of filels. if <directory> is provided, cd there or open prompt' \
   %{
-    _tree-assert-buffer
+    _ls-assert-buffer
     evaluate-commands -save-regs 'd' %{
       set-register d %sh{pwd}
-      change-directory %opt{_tree_current_dir}
+      change-directory %opt{_ls_current_dir}
       evaluate-commands %sh{
         if [ -n "$1" ]; then
-          echo "_tree-cd-impl '$1' '$kak_reg_d'"
+          echo "_ls-cd-impl '$1' '$kak_reg_d'"
         else
-          echo "_tree-cd-prompt '$kak_reg_d'"
+          echo "_ls-cd-prompt '$kak_reg_d'"
         fi
       }
     }
   }
 
-  define-command tree-run -params .. \
-  -docstring 'tree-run [<command>]: Run <command> in current tree directory. if <command> is provided, run it or open prompt' \
+  define-command ls-run -params .. \
+  -docstring 'ls-run [<command>]: Run <command> in current ls directory. if <command> is provided, run it or open prompt' \
   %{
-    _tree-assert-buffer
+    _ls-assert-buffer
     evaluate-commands -save-regs 'd' %{
       set-register d %sh{pwd}
-      change-directory %opt{_tree_current_dir}
+      change-directory %opt{_ls_current_dir}
       evaluate-commands %sh{
         if [ -n "$1" ]; then
           $@ > /dev/null
           printf 'change-directory "%s"\n' "$kak_reg_d"
-          printf "tree-redraw\n"
+          printf "ls-redraw\n"
         else
           printf 'prompt -shell-completion "Command:" %%{
             nop %%sh{
               eval "$kak_text"
             }
             change-directory "%s"
-            tree-redraw
+            ls-redraw
           }\n' "$kak_reg_d"
         fi
       }
     }
   }
 
-  define-command tree-copy-path %{
+  define-command ls-copy-path %{
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
 
-      echo "set-register dquote '$kak_opt__tree_current_dir/$current_file'"
+      echo "set-register dquote '$kak_opt__ls_current_dir/$current_file'"
     }
   }
 
-  define-command tree-copy-name %{
+  define-command ls-copy-name %{
     evaluate-commands %sh{
-      cd "$kak_opt__tree_current_dir"
-      ui_tree="$(eval "$kak_opt__tree_cmd")"
-      current_file="$(echo "$ui_tree" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      cd "$kak_opt__ls_current_dir"
+      ui="$(eval "$kak_opt__ls_cmd")"
+      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
       if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
         current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
       fi
@@ -534,13 +534,13 @@ provide-module tree %{
     }
   }
 
-  define-command tree-copy-directory %{
+  define-command ls-copy-directory %{
     evaluate-commands %sh{
-      echo "set-register dquote '$kak_opt__tree_current_dir'"
+      echo "set-register dquote '$kak_opt__ls_current_dir'"
     }
   }
 
-  hook global WinSetOption filetype=tree %{
+  hook global WinSetOption filetype=ls %{
     set-option window modelinefmt ''
 
     map window normal i ":nop<ret>"
@@ -561,18 +561,18 @@ provide-module tree %{
     map window normal R ":nop<ret>"
 
     evaluate-commands %sh{
-      echo "add-highlighter -override window/ regex '^($kak_opt__tree_copied_indicator)' 1:red"
-      echo "add-highlighter -override window/ regex '^($kak_opt__tree_selected_indicator)' 1:cyan"
+      echo "add-highlighter -override window/ regex '^($kak_opt__ls_copied_indicator)' 1:red"
+      echo "add-highlighter -override window/ regex '^($kak_opt__ls_selected_indicator)' 1:cyan"
     }
 
     hook window RawKey .* %{
-      _tree-hline
+      _ls-hline
     }
   }
 
-  hook global ClientClose %opt{_tree_client} %{
-    try %{ tree-disable }
+  hook global ClientClose %opt{_ls_client} %{
+    try %{ ls-disable }
   }
 }
 
-require-module tree
+require-module ls
