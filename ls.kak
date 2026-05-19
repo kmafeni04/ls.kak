@@ -29,7 +29,7 @@ provide-module ls %{
     try %{ add-highlighter window/hlline line %val{cursor_line} %opt{_ls_hline_face} }
   }
 
-  define-command ls-redraw -docstring 'Redraw the filebrowser' -params ..1 %{
+  define-command -hidden _ls-redraw-impl -params ..1 %{
     _ls-assert-buffer
     evaluate-commands -save-regs 'c' %sh{
       if [ -n "$1" ]; then
@@ -74,12 +74,16 @@ provide-module ls %{
     _ls-hline
   }
 
+  define-command ls-redraw -docstring 'Redraw the filebrowser' %{
+    _ls-redraw-impl
+  }
+
   define-command -hidden _ls-enable-impl -params 1 %{
       edit -scratch -debug "*ls*"
       set-option window filetype ls
       rename-client "%opt{_ls_client}"
       execute-keys "gg"
-      ls-redraw %arg{1}
+      _ls-redraw-impl %arg{1}
   }
 
   define-command ls-enable -docstring 'Open the filebrowser' %{
