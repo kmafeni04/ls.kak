@@ -29,7 +29,7 @@ provide-module ls %{
     try %{ add-highlighter window/hlline line %val{cursor_line} %opt{_ls_hline_face} }
   }
 
-  define-command ls-redraw -docstring 'Redraw the filels' -params ..1 %{
+  define-command ls-redraw -docstring 'Redraw the filebrowser' -params ..1 %{
     _ls-assert-buffer
     evaluate-commands -save-regs 'c' %sh{
       if [ -n "$1" ]; then
@@ -98,12 +98,12 @@ provide-module ls %{
     }
   }
 
-  define-command ls-disable -docstring 'Close the filels' %{
+  define-command ls-disable -docstring 'Close the filebrowser' %{
     try %{ delete-buffer "*ls*" } catch %{ fail }
     try %{ evaluate-commands -client %opt{_ls_client} quit }
   }
 
-  define-command ls-toggle -docstring 'Toggle visibility of filels' %{
+  define-command ls-toggle -docstring 'Toggle visibility of filebrowser' %{
     try %{
       ls-disable
     } catch %{
@@ -148,19 +148,7 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        original="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-        target="$(echo "$current_file" | awk -F' -> ' '{print $2}')"
-        if [ -f "$target" ]; then
-          open "$target"
-        elif [ -d "$target" ]; then
-          cd "$original"
-          echo "set-option window _ls_current_dir \"$PWD\""
-          echo "execute-keys gg"
-        fi
-      else
-        open "$current_file"
-      fi
+      open "$current_file"
     }
     ls-redraw
   }
@@ -222,9 +210,6 @@ provide-module ls %{
           ui="$(eval "$kak_opt__ls_cmd")"
 
           current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-          if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-            current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-          fi
 
           if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
             echo "fail 'Cannot delete ./ or ../'"
@@ -245,9 +230,6 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-      fi
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
         echo "fail 'Cannot select ./ or ../'"
@@ -284,9 +266,6 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-      fi
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
         echo "fail 'Cannot copy ./ or ../'"
@@ -416,9 +395,6 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-      fi
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
         echo "fail 'Cannot rename ./ or ../'"
@@ -467,7 +443,7 @@ provide-module ls %{
   }
 
   define-command ls-cd -params ..1 \
-  -docstring 'ls-cd: [<directory>]: Change <directory> of filels. if <directory> is provided, cd there or open prompt' \
+  -docstring 'ls-cd: [<directory>]: Change <directory> of filebrowser. if <directory> is provided, cd there or open prompt' \
   %{
     _ls-assert-buffer
     evaluate-commands -save-regs 'd' %{
@@ -513,9 +489,6 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-      fi
 
       echo "set-register dquote '$kak_opt__ls_current_dir/$current_file'"
     }
@@ -526,9 +499,6 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
-      if [ -n "$(echo "$current_file" | grep " -> ")" ]; then
-        current_file="$(echo "$current_file" | awk -F' -> ' '{print $1}')"
-      fi
 
       echo "set-register dquote '$current_file'"
     }
