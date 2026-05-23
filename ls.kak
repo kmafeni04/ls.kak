@@ -22,6 +22,9 @@ provide-module ls %{
     }
   }
 
+  define-command -hidden -params 1 _ls-jump-client-send-cmd %{
+    evaluate-commands -try-client %opt{_ls_jump_client} %arg{1}
+  }
   define-command -hidden _ls-hline %{
     set-face window PrimaryCursor %opt{_ls_hline_face}
     set-face window PrimaryCursorEol %opt{_ls_hline_face}
@@ -142,7 +145,8 @@ provide-module ls %{
             elif [ -n "$TERMINAL" ]; then
               $TERMINAL -e sh -c "cd $dir; $cmd" || $TERMINAL -x sh -c "cd $dir; $cmd" || $TERMINAL sh -c "cd $dir; $cmd"
             else
-              echo "fail 'No defined method to run program'"
+              printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}No defined way  to open file, see *debug* buffer'}"
+              printf 'fail\n'
             fi
           fi
         fi
@@ -216,7 +220,8 @@ provide-module ls %{
           current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
           if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-            echo "fail 'Cannot delete ./ or ../'"
+            printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/ or ../'}"
+            printf 'fail\n'
             exit
           fi
 
@@ -236,7 +241,8 @@ provide-module ls %{
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        echo "fail 'Cannot select ./ or ../'"
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/ or ../'}"
+        printf 'fail\n'
         exit
       fi
 
@@ -272,7 +278,8 @@ provide-module ls %{
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        echo "fail 'Cannot copy ./ or ../'"
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/ or ../'}"
+        printf 'fail\n'
         exit
       fi
 
@@ -302,7 +309,6 @@ provide-module ls %{
   define-command ls-cut -docstring 'Cut a file to be pasted later' %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "cut"
-    # set-option window modelinefmt "Cut %opt{_ls_copied_count} file(s)"
     set-option window modelinefmt %sh{
       files="$([ $kak_opt__ls_copied_count -gt 1 ] && echo 'files' || echo 'file')"
       printf "%s cut" "$kak_opt__ls_copied_count $files"
@@ -363,7 +369,8 @@ provide-module ls %{
         dest="$kak_opt__ls_current_dir/$new_name"
 
         if [ "$path" = "$kak_opt__ls_current_dir/" ]; then
-          echo "fail 'Cannot copy/move into self'"
+          printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy or move into self'}"
+          printf 'fail\n'
           exit
         fi
 
@@ -373,7 +380,8 @@ provide-module ls %{
           mv "$path" "$dest"
         fi
         if [ $? -ne 0 ]; then
-          echo "fail 'Failed to paste file'"
+          printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Failed to paste file, see *debug* buffer'}"
+          printf 'fail\n'
           exit
         fi
       done
@@ -401,7 +409,8 @@ provide-module ls %{
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        echo "fail 'Cannot rename ./ or ../'"
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir or ../'}"
+        printf 'fail\n'
         exit
       fi
       echo "set-register f '$current_file'"
@@ -411,7 +420,10 @@ provide-module ls %{
         evaluate-commands %sh{
         cd "$kak_opt__ls_current_dir"
           mv "$kak_reg_f" "$kak_text"
-          [ $? -ne 0 ] && echo "fail 'Could not rename file'"
+          if [ $? -ne 0 ]; then
+            printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Could not rename file, see *debug* buffer'}"
+            printf 'fail\n'
+          fi
         }
         ls-redraw
       }
@@ -423,6 +435,8 @@ provide-module ls %{
       cd "$kak_opt__ls_current_dir"
 
       dir="$1"
+      dir="$(printf '%s' "$dir" | sed "s|^~|$HOME|")"
+
       ret_dir="$2"
 
       echo "change-directory '$ret_dir'"
@@ -431,7 +445,8 @@ provide-module ls %{
 
       # Doing this as to not need to check that `$dir` is a link
       if [ $? -ne 0 ]; then
-        echo "fail '`$dir` is not a directory'"
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Failed to change directory, see *debug* buffer'}"
+        printf 'fail\n'
         exit
       fi
 
@@ -441,7 +456,10 @@ provide-module ls %{
   }
 
   define-command -hidden _ls-cd-prompt -params 1 %{
-    prompt -on-abort 'change-directory %arg{1}' -menu -file-completion "Directory:" %{
+    prompt -on-abort 'change-directory %arg{1}' \
+    -menu -file-completion \
+    "Directory:" \
+    %{
       _ls-cd-impl "%val{text}" "%arg{1}"
     }
   }
