@@ -1,7 +1,7 @@
 provide-module ls %{
   declare-option -hidden str _ls_current_dir "."
   declare-option -hidden str _ls_cmd \
-    "echo '../'; printf '%%s\n' ""$(basename ""$(pwd)"")/""; ls --group-directories-first -1 -A -L -p | sed -E 's|^|  |'"
+    "printf '%%s\n' ""$(basename ""$(pwd)"")/""; ls --group-directories-first -1 -A -L -p | sed -E 's|^|  |'"
   declare-option -hidden str _ls_jump_client "lsjumpclient"
   declare-option -hidden str _ls_client "lsclient"
   declare-option -hidden str-list _ls_selected_filepaths
@@ -13,6 +13,7 @@ provide-module ls %{
   declare-option -hidden int _ls_copied_count
   declare-option -hidden str _ls_copied_indicator "\*"
   declare-option -hidden str _ls_hline_face "default,default+@SecondarySelection"
+  declare-option -hidden str-to-str-map _ls_dir_positions # (dir=cursor_line\n)
 
   define-command -hidden _ls-assert-buffer %{
     evaluate-commands %sh{
@@ -32,47 +33,60 @@ provide-module ls %{
     try %{ add-highlighter window/hlline line %val{cursor_line} %opt{_ls_hline_face} }
   }
 
-  define-command -hidden _ls-redraw-impl -params ..1 %{
+  define-command -override -hidden _ls-redraw-impl -params ..1 %{
     _ls-assert-buffer
-    evaluate-commands -save-regs 'c' %sh{
-      if [ -n "$1" ]; then
-        kak_opt__ls_current_dir="$1"
-        echo "set-option window _ls_current_dir '$1'"
-      fi
-      cd "$kak_opt__ls_current_dir"
+    evaluate-commands %sh{
+      [ -n "$1" ] && printf '%s\n' "set-option window _ls_current_dir '$1'"
+    }
+    evaluate-commands -save-regs 'c' %{
+      set-register c %sh{
+        cd "$kak_opt__ls_current_dir"
 
-      ui="$(eval "$kak_opt__ls_cmd")"
+        ui="$(eval "$kak_opt__ls_cmd")"
 
-      if [ -n "$kak_opt__ls_copied_filepaths" ]; then
-        array="$kak_opt__ls_copied_filepaths"
-        while [ -n "$array" ]; do
-          path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
+        if [ -n "$kak_opt__ls_copied_filepaths" ]; then
+          array="$kak_opt__ls_copied_filepaths"
+          while [ -n "$array" ]; do
+            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
-          [ "$path" = "$array" ] && break
-          if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-            ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_copied_indicator\1|")"
-          fi
+            [ "$path" = "$array" ] && break
+            if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_copied_indicator\1|")"
+            fi
 
-          array="${array#*:__:}"
-        done
-      fi
+            array="${array#*:__:}"
+          done
+        fi
 
-      if [ -n "$kak_opt__ls_selected_filepaths" ]; then
-        array="$kak_opt__ls_selected_filepaths"
-        while [ -n "$array" ]; do
-          path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
+        if [ -n "$kak_opt__ls_selected_filepaths" ]; then
+          array="$kak_opt__ls_selected_filepaths"
+          while [ -n "$array" ]; do
+            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
 
-          [ "$path" = "$array" ] && break
-          if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-            ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_selected_indicator\1|")"
-          fi
+            [ "$path" = "$array" ] && break
+            if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_selected_indicator\1|")"
+            fi
 
-          array="${array#*:__:}"
-        done
-      fi
+            array="${array#*:__:}"
+          done
+        fi
+        printf '%s\n' "$ui"
+      }
 
-      echo "set-register c '$ui'"
-      echo "execute-keys '%%<dquote>cR:select $kak_selection_desc<ret>'"
+      execute-keys '%"cRgg'
+    }
+
+    evaluate-commands %sh{
+      IFS=$'\n'
+      for pos in $(printf '%b' $kak_opt__ls_dir_positions); do
+        dir="$(printf '%s' "${pos%%=*}" | sed -E 's|^\s+||; s|\s+$||')"
+        line="${pos#*=}"
+        if [ "$dir" = "$kak_opt__ls_current_dir" ]; then
+          printf '%s\n' "execute-keys '${line}ggh'"
+          exit
+        fi
+      done
     }
     _ls-hline
   }
@@ -127,7 +141,6 @@ provide-module ls %{
         if [ -d "$filepath" ]; then
           cd "$filepath"
           echo "set-option window _ls_current_dir \"$PWD\""
-          echo "execute-keys gg"
         elif [ -f "$filepath" ]; then
           filepath="$kak_opt__ls_current_dir/$filepath"
 
@@ -219,8 +232,8 @@ provide-module ls %{
 
           current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
-          if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-            printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/ or ../'}"
+          if [ "$current_file" = "./" ]; then
+            printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/'}"
             printf 'fail\n'
             exit
           fi
@@ -240,8 +253,8 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/ or ../'}"
+      if [ "$current_file" = "./" ]; then
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/'}"
         printf 'fail\n'
         exit
       fi
@@ -277,8 +290,8 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/ or ../'}"
+      if [ "$current_file" = "./" ]; then
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/'}"
         printf 'fail\n'
         exit
       fi
@@ -408,8 +421,8 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "../" ] || [ "$current_file" = "./" ]; then
-        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir or ../'}"
+      if [ "$current_file" = "./" ]; then
+        printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir'}"
         printf 'fail\n'
         exit
       fi
@@ -559,6 +572,10 @@ provide-module ls %{
 
     hook window RawKey .* %{
       _ls-hline
+
+      evaluate-commands %sh{
+        printf '%s\n' "set-option -add window _ls_dir_positions '$kak_opt__ls_current_dir=$kak_cursor_line\n'"
+      }
     }
   }
 
