@@ -18,7 +18,7 @@ hook global WinSetOption filetype=ls %{
   try %{ remove-highlighter window/wrap }
   map window normal <ret> ":ls-open<ret>"
   map window normal l ":ls-open<ret>"
-  map window normal h "gg:ls-open<ret>"
+  map window normal h ":ls-cd ..<ret>"
   map window normal a ":ls-create<ret>"
   map window normal d ":ls-delete<ret>"
   map window normal y ":ls-copy<ret>"
