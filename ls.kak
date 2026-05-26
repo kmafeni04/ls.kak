@@ -270,15 +270,16 @@ provide-module ls %{
         paths="$current_file${SEP}$paths"
       fi
 
-      echo "set-option window _ls_selected_filepaths '$paths'"
-      count="$(printf '%s' "$paths" | sed "s|$SEP|\n|g" | wc -l)"
+      printf '%s\n' "set-option window _ls_selected_filepaths '$paths'"
+      paths="$(printf '%s' "$paths" | sed "s|$SEP|\n|g")"
+      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       if [ $count -gt 0 ]; then
-        echo "set-option window modelinefmt '$count $files selected'"
-        echo "set-option window _ls_selected_count $count"
+        printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count selected' %{$paths}}"
+        printf '%s\n' "set-option window _ls_selected_count $count"
       else
-        echo "set-option window modelinefmt ''"
-        echo "set-option window _ls_selected_count 0"
+        printf '%s\n' "_ls-jump-client-send-cmd %{execute-keys <esc>}"
+        printf '%s\n' "set-option window _ls_selected_count 0"
       fi
     }
     ls-redraw
@@ -313,18 +314,22 @@ provide-module ls %{
   define-command ls-copy -docstring 'Copy a file to be pasted later' %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "copy"
-    set-option window modelinefmt %sh{
-      files="$([ $kak_opt__ls_copied_count -gt 1 ] && echo 'files' || echo 'file')"
-      printf "%s copied" "$kak_opt__ls_copied_count $files"
+    evaluate-commands %sh{
+      SEP="$kak_opt__ls_selected_filepaths_sep"
+      paths="$(printf '%s' "$kak_opt__ls_copied_filepaths" | sed "s|$SEP|\n|g")"
+      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
+      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$paths}}"
     }
   }
 
   define-command ls-cut -docstring 'Cut a file to be pasted later' %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "cut"
-    set-option window modelinefmt %sh{
-      files="$([ $kak_opt__ls_copied_count -gt 1 ] && echo 'files' || echo 'file')"
-      printf "%s cut" "$kak_opt__ls_copied_count $files"
+    evaluate-commands %sh{
+      SEP="$kak_opt__ls_selected_filepaths_sep"
+      paths="$(printf '%s' "$kak_opt__ls_copied_filepaths" | sed "s|$SEP|\n|g")"
+      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
+      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count cut' %{$paths}}"
     }
   }
 
@@ -410,7 +415,7 @@ provide-module ls %{
     set-option window _ls_copied_filepaths ''
     set-option window _ls_copied_count 0
     set-option window _ls_copied_action ''
-    set-option window modelinefmt ''
+    _ls-jump-client-send-cmd %{execute-keys <esc>}
     ls-redraw
   }
 
