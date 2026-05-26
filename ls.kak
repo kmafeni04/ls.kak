@@ -136,7 +136,7 @@ provide-module ls %{
           cd "$filepath"
           echo "set-option window _ls_current_dir \"$PWD\""
         elif [ -f "$filepath" ]; then
-          filepath="$kak_opt__ls_current_dir/$filepath"
+          filepath="$(printf '%s' "$kak_opt__ls_current_dir/$filepath" | sed 's|\ |\\ |g')"
 
           if [ -n "$(echo "$kak_client_list" | grep -o "$kak_opt__ls_jump_client")" ]; then
             echo "evaluate-commands -client $kak_opt__ls_jump_client %{ edit -existing "$filepath" }" | kak -p $kak_session
