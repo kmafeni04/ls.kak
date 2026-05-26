@@ -6,8 +6,6 @@ provide-module ls %{
   declare-option -hidden str _ls_client "lsclient"
   declare-option -hidden str-list _ls_selected_filepaths
   declare-option -hidden str _ls_selected_indicator "\+"
-  declare-option -hidden str _ls_selected_filepaths_sep ":__:"
-  declare-option -hidden int _ls_selected_count
   declare-option -hidden str-list _ls_copied_filepaths
   declare-option -hidden str _ls_copied_action
   declare-option -hidden int _ls_copied_count
@@ -44,31 +42,27 @@ provide-module ls %{
 
         ui="$(eval "$kak_opt__ls_cmd")"
 
-        if [ -n "$kak_opt__ls_copied_filepaths" ]; then
-          array="$kak_opt__ls_copied_filepaths"
-          while [ -n "$array" ]; do
-            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
+        if [ -n "$kak_quoted_opt__ls_copied_filepaths" ]; then
+          eval "set -- $kak_quoted_opt__ls_copied_filepaths"
+          while [ $# -gt 0 ]; do
+            path="$1"
+            shift
 
-            [ "$path" = "$array" ] && break
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
               ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_copied_indicator\1|")"
             fi
-
-            array="${array#*:__:}"
           done
         fi
 
-        if [ -n "$kak_opt__ls_selected_filepaths" ]; then
-          array="$kak_opt__ls_selected_filepaths"
-          while [ -n "$array" ]; do
-            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
+        if [ -n "$kak_quoted_opt__ls_selected_filepaths" ]; then
+          eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+          while [ $# -gt 0 ]; do
+            path="$1"
+            shift
 
-            [ "$path" = "$array" ] && break
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
               ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_selected_indicator\1|")"
             fi
-
-            array="${array#*:__:}"
           done
         fi
         printf '%s\n' "$ui"
@@ -196,8 +190,7 @@ provide-module ls %{
   define-command ls-delete -docstring 'Delete a file' %{
     _ls-assert-buffer
     prompt %sh{
-      count=$kak_opt__ls_selected_count
-      [ $count -eq 0 ] && count=1
+      count="$(printf '%s\n' $kak_quoted_opt__ls_selected_filepaths | sed "s|'||g" | wc -l)" #' # Broken highlighter annoyed me enough
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       printf "Delete %s? [y/n]:" "$count $files"
     } \
@@ -215,16 +208,13 @@ provide-module ls %{
           fi
         }
 
-        if [ -n "$kak_opt__ls_selected_filepaths" ]; then
-          array="$kak_opt__ls_selected_filepaths"
-          while [ -n "$array" ]; do
-            path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
-
-            [ "$path" = "$array" ] && break
+        if [ -n "$kak_quoted_opt__ls_selected_filepaths" ]; then
+          eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+          while [ $# -gt 0 ]; do
+            path="$1"
+            shift
 
             remove_file "$path"
-
-            array="${array#*:__:}"
           done
         else
           cd "$kak_opt__ls_current_dir"
@@ -261,25 +251,46 @@ provide-module ls %{
 
       current_file="$kak_opt__ls_current_dir/$current_file"
 
-      SEP="$kak_opt__ls_selected_filepaths_sep"
+      eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+      count=$#
+      found=false
+      while [ $# -gt 0 ]; do
+        path="$1"
+        shift
 
-      paths="$kak_opt__ls_selected_filepaths"
-      if printf '%s' "$paths" | grep -q "$current_file$SEP"; then
-        paths="$(echo "$paths" | sed "s|$current_file$SEP||")"
-      else
-        paths="$current_file${SEP}$paths"
+        if [ "$path" = "$current_file" ]; then
+          printf '%s\n' "set-option -remove window _ls_selected_filepaths '$path'"
+          count=$((count - 1))
+          found=true
+          break
+        fi
+      done
+
+      if [ $found = false ]; then
+        printf '%s\n' "set-option -add window _ls_selected_filepaths '$current_file'"
+        extra_path="$current_file"
+        count=$((count + 1))
       fi
 
-      printf '%s\n' "set-option window _ls_selected_filepaths '$paths'"
-      paths="$(printf '%s' "$paths" | sed "s|$SEP|\n|g")"
-      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       if [ $count -gt 0 ]; then
-        printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count selected' %{$paths}}"
-        printf '%s\n' "set-option window _ls_selected_count $count"
+        printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count selected' %{$(
+          eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+          while [ $# -gt 0 ]; do
+            path="$1"
+            shift
+
+            if [ "$path" = "$current_file" ]; then
+              continue
+            fi
+            printf '%s\n' "$path"
+          done
+          if [ -n "$extra_path" ]; then
+            printf '%s\n' "$extra_path"
+          fi
+        )}}"
       else
         printf '%s\n' "_ls-jump-client-send-cmd %{execute-keys <esc>}"
-        printf '%s\n' "set-option window _ls_selected_count 0"
       fi
     }
     ls-redraw
@@ -287,6 +298,7 @@ provide-module ls %{
 
   define-command -hidden _ls-get-copy-cut-path -params 1 %{
     evaluate-commands %sh{
+      action="$1"
       cd "$kak_opt__ls_current_dir"
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
@@ -297,16 +309,21 @@ provide-module ls %{
         exit
       fi
 
-      if [ -n "$kak_opt__ls_selected_filepaths" ]; then
-        echo "set-option window _ls_copied_filepaths '$kak_opt__ls_selected_filepaths'"
-        echo "set-option window _ls_copied_count $kak_opt__ls_selected_count"
-        echo "set-option window _ls_selected_filepaths ''"
-        echo "set-option window _ls_selected_count 0"
+      printf '%s\n' "set-option window _ls_copied_filepaths"
+      if [ -n "$kak_quoted_opt__ls_selected_filepaths" ]; then
+        eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+        count=$#
+        while [ $# -gt 0 ]; do
+          path="$1"
+          shift
+
+          printf '%s\n' "set-option -add window _ls_copied_filepaths '$path'"
+        done
+        printf '%s\n' "set-option window _ls_selected_filepaths"
       else
-        echo "set-option window _ls_copied_filepaths '$kak_opt__ls_current_dir/${current_file}$kak_opt__ls_selected_filepaths_sep'"
-        echo "set-option window _ls_copied_count 1"
+        printf '%s\n' "set-option -add window _ls_copied_filepaths '$kak_opt__ls_current_dir/${current_file}'"
       fi
-      echo "set-option window _ls_copied_action '$1'"
+      printf '%s\n' "set-option window _ls_copied_action '$action'"
     }
     ls-redraw
   }
@@ -315,8 +332,7 @@ provide-module ls %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "copy"
     evaluate-commands %sh{
-      SEP="$kak_opt__ls_selected_filepaths_sep"
-      paths="$(printf '%s' "$kak_opt__ls_copied_filepaths" | sed "s|$SEP|\n|g")"
+      paths="$(printf '%s\n' $kak_quoted_opt__ls_copied_filepaths | sed "s|'||g")" #' # Broken highlighter annoyed me enough
       [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
       printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$paths}}"
     }
@@ -326,8 +342,7 @@ provide-module ls %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "cut"
     evaluate-commands %sh{
-      SEP="$kak_opt__ls_selected_filepaths_sep"
-      paths="$(printf '%s' "$kak_opt__ls_copied_filepaths" | sed "s|$SEP|\n|g")"
+      paths="$(printf '%s\n' $kak_quoted_opt__ls_copied_filepaths | sed "s|'||g")" #' # Broken highlighter annoyed me enough
       [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
       printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count cut' %{$paths}}"
     }
@@ -351,13 +366,11 @@ provide-module ls %{
         fi
       }
 
-      array="$kak_opt__ls_copied_filepaths"
-      while [ -n "$array" ]; do
-        path="${array%%$kak_opt__ls_selected_filepaths_sep*}"
-
-        [ "$path" = "$array" ] && break
-
-        array="${array#*:__:}"
+      eval "set -- $kak_quoted_opt__ls_copied_filepaths"
+      count=$#
+      while [ $# -gt 0 ]; do
+        path="$1"
+        shift
 
         name="$(basename "$path")"
 
@@ -410,10 +423,8 @@ provide-module ls %{
 
   define-command ls-clear -docstring 'Clear selections if they exist' %{
     _ls-assert-buffer
-    set-option window _ls_selected_filepaths ''
-    set-option window _ls_selected_count 0
-    set-option window _ls_copied_filepaths ''
-    set-option window _ls_copied_count 0
+    set-option window _ls_selected_filepaths
+    set-option window _ls_copied_filepaths
     set-option window _ls_copied_action ''
     _ls-jump-client-send-cmd %{execute-keys <esc>}
     ls-redraw
