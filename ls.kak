@@ -11,7 +11,7 @@ provide-module ls %{
   declare-option -hidden int _ls_copied_count
   declare-option -hidden str _ls_copied_indicator "\*"
   declare-option -hidden str _ls_hline_face "default,default+@SecondarySelection"
-  declare-option -hidden str-to-str-map _ls_dir_positions # (dir=cursor_line\n)
+  declare-option -hidden str-to-str-map _ls_dir_positions # (dir=cursor_line)
 
   define-command -hidden _ls-assert-buffer %{
     evaluate-commands %sh{
@@ -72,10 +72,13 @@ provide-module ls %{
     }
 
     evaluate-commands %sh{
-      IFS=$'\n'
-      for pos in $(printf '%b' $kak_opt__ls_dir_positions); do
-        dir="$(printf '%s' "${pos%%=*}" | sed -E 's|^\s+||; s|\s+$||')"
-        line="${pos#*=}"
+      eval "set -- $kak_quoted_opt__ls_dir_positions"
+      while [ $# -gt 0 ]; do
+        pos="$1"
+        shift
+
+        dir="$(printf '%s' "$pos" | sed -E 's|=.+||; s|^\s+||; s|\s+$||')"
+        line="$(printf '%s' "$pos" | sed 's|.*=||')"
         if [ "$dir" = "$kak_opt__ls_current_dir" ]; then
           printf '%s\n' "execute-keys '${line}ggh'"
           exit
@@ -590,7 +593,7 @@ provide-module ls %{
       _ls-hline
 
       evaluate-commands %sh{
-        printf '%s\n' "set-option -add window _ls_dir_positions '$kak_opt__ls_current_dir=$kak_cursor_line\n'"
+        printf '%s\n' "set-option -add window _ls_dir_positions '$kak_opt__ls_current_dir=$kak_cursor_line'"
       }
     }
   }
