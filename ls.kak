@@ -8,7 +8,6 @@ provide-module ls %{
   declare-option -hidden str _ls_selected_indicator "\+"
   declare-option -hidden str-list _ls_copied_filepaths
   declare-option -hidden str _ls_copied_action
-  declare-option -hidden int _ls_copied_count
   declare-option -hidden str _ls_copied_indicator "\*"
   declare-option -hidden str _ls_hline_face "default,default+@SecondarySelection"
   declare-option -hidden str-to-str-map _ls_dir_positions # (dir=cursor_line)
@@ -193,7 +192,8 @@ provide-module ls %{
   define-command ls-delete -docstring 'Delete a file' %{
     _ls-assert-buffer
     prompt %sh{
-      count="$(printf '%s\n' $kak_quoted_opt__ls_selected_filepaths | sed "s|'||g" | wc -l)" #' # Broken highlighter annoyed me enough
+      eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+      count="$#"
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       printf "Delete %s? [y/n]:" "$count $files"
     } \
@@ -335,9 +335,12 @@ provide-module ls %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "copy"
     evaluate-commands %sh{
-      paths="$(printf '%s\n' $kak_quoted_opt__ls_copied_filepaths | sed "s|'||g")" #' # Broken highlighter annoyed me enough
-      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
-      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$paths}}"
+      eval "set -- $kak_quoted_opt__ls_copied_filepaths"
+      count="$#"
+      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$(while [ $# -gt 0 ]; do
+        printf '%s\n' "$1"
+        shift
+      done)}}"
     }
   }
 
@@ -345,9 +348,12 @@ provide-module ls %{
     _ls-assert-buffer
     _ls-get-copy-cut-path "cut"
     evaluate-commands %sh{
-      paths="$(printf '%s\n' $kak_quoted_opt__ls_copied_filepaths | sed "s|'||g")" #' # Broken highlighter annoyed me enough
-      [ -n "$paths" ] && count="$(printf '%s\n' "$paths" | wc -l)"
-      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count cut' %{$paths}}"
+      eval "set -- $kak_quoted_opt__ls_copied_filepaths"
+      count="$#"
+      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$(while [ $# -gt 0 ]; do
+        printf '%s\n' "$1"
+        shift
+      done)}}"
     }
   }
 
