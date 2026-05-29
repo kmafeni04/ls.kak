@@ -28,6 +28,7 @@ hook global WinSetOption filetype=ls %{
   map window normal r ":ls-rename<ret>"
   map window normal <tab> ":ls-cd<ret>"
   map window normal <esc> ":ls-clear<ret>"
+  map window normal <semicolon> ":ls-run<ret>"
   map window normal s ":ls-toggle-select<ret>"
 
   try %{ declare-user-mode ls-copy-info } # Copy focused file's info to default yank/paste register
