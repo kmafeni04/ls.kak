@@ -194,6 +194,7 @@ provide-module ls %{
     prompt %sh{
       eval "set -- $kak_quoted_opt__ls_selected_filepaths"
       count="$#"
+      [ $count -eq 0 ] && count=1
       files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       printf "Delete %s? [y/n]:" "$count $files"
     } \
@@ -337,6 +338,10 @@ provide-module ls %{
     evaluate-commands %sh{
       eval "set -- $kak_quoted_opt__ls_copied_filepaths"
       count="$#"
+      if [ $count -eq 0 ]; then
+        count=1
+        eval "set -- '$kak_opt__ls_current_dir/${current_file}'"
+      fi
       printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$(while [ $# -gt 0 ]; do
         printf '%s\n' "$1"
         shift
@@ -350,7 +355,11 @@ provide-module ls %{
     evaluate-commands %sh{
       eval "set -- $kak_quoted_opt__ls_copied_filepaths"
       count="$#"
-      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count copied' %{$(while [ $# -gt 0 ]; do
+      if [ $count -eq 0 ]; then
+        count=1
+        eval "set -- '$kak_opt__ls_current_dir/${current_file}'"
+      fi
+      printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count cut' %{$(while [ $# -gt 0 ]; do
         printf '%s\n' "$1"
         shift
       done)}}"
