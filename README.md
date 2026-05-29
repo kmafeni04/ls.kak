@@ -15,7 +15,8 @@ Run either `:ls-open` or `:ls-toggle` to get started
 ## Suggested Hook
 ```kak
 hook global WinSetOption filetype=ls %{
-  try %{ remove-highlighter window/wrap }
+  try %{ remove-highlighter window/wrap } # If you have wrapping enabled in your window scope
+
   map window normal <ret> ":ls-open<ret>"
   map window normal l ":ls-open<ret>"
   map window normal h ":ls-cd ..<ret>"
