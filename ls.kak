@@ -1,7 +1,10 @@
 provide-module ls %{
+  declare-option -docstring "Dircection the ls pane will be opened [left,right,up,down] (TMUX)" str ls_direction "left"
+  declare-option -docstring "Size of the ls pane in percentage (TMUX)" int ls_size 20
+
   declare-option -hidden str _ls_current_dir "."
   declare-option -hidden str _ls_cmd \
-    "printf '%%s\n' ""$(basename ""$(pwd)"")/""; ls --group-directories-first -1 -A -L -p | sed -E 's|^|  |'"
+    "printf '%%s\n' ""$(basename $PWD)/""; ls --group-directories-first -1 -A -L -p | sed -E 's|^|  |'"
   declare-option -hidden str _ls_jump_client "lsjumpclient"
   declare-option -hidden str _ls_client "lsclient"
   declare-option -hidden str-list _ls_selected_filepaths
@@ -107,8 +110,22 @@ provide-module ls %{
     evaluate-commands %sh{
       dir=
       [ -f "$kak_buffile" ] && dir="$(dirname "$kak_buffile")" || dir="$PWD"
+      get_direction_flags() {
+        case "$1" in
+          "up")    printf '%s\n' "-v -b" ;;
+          "down")  printf '%s\n' "-v"    ;;
+          "left")  printf '%s\n' "-h -b" ;;
+          "right") printf '%s\n' "-h"    ;;
+        esac
+      }
+
       if [ -n "$TMUX" ]; then
-        tmux split-window -l "20%" -h -b "kak -c $kak_session -e '_ls-enable-impl %{$dir}'" > /dev/null
+        flags="$(get_direction_flags "$kak_opt_ls_direction")"
+        if [ -z "$flags" ]; then
+          printf "fail 'Invalid direction: %s'\n" "$direction"
+          exit
+        fi
+        tmux split-window -l "$kak_opt_ls_size%" $flags "kak -c $kak_session -e '_ls-enable-impl %{$dir}'" > /dev/null
       else
         echo "new '_ls-enable-impl %{$dir}'"
       fi

@@ -12,6 +12,10 @@ Copy [ls.kak](./ls.kak) into your autoload directory
 ## Usage
 Run either `:ls-open` or `:ls-toggle` to get started
 
+## Available Options
+- `ls_direction`: Direction the ls pane will be opened if TMUX is the windowing system [left,right,up,down]
+- `ls_size`: Size of the ls pane in percentage if TMUX is the windowing system
+
 ## Suggested Hook
 ```kak
 hook global WinSetOption filetype=ls %{
