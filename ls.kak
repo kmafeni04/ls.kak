@@ -37,7 +37,7 @@ provide-module ls %{
     }
     evaluate-commands -save-regs 'c' %{
       set-register c %sh{
-        cd "$kak_opt__ls_current_dir"
+        cd "$kak_opt__ls_current_dir" || exit
 
         ui="$(eval "$kak_opt__ls_cmd")"
 
@@ -132,21 +132,21 @@ provide-module ls %{
     _ls-assert-buffer
     evaluate-commands %sh{
       open(){
-        local filepath="$1"
+        filepath="$1"
 
         if [ -d "$filepath" ]; then
-          cd "$filepath"
+          cd "$filepath" || exit
           echo "set-option window _ls_current_dir \"$PWD\""
         elif [ -f "$filepath" ]; then
           filepath="$(printf '%s' "$kak_opt__ls_current_dir/$filepath" | sed 's|\ |\\ |g')"
 
-          if [ -n "$(echo "$kak_client_list" | grep -o "$kak_opt__ls_jump_client")" ]; then
-            echo "evaluate-commands -client $kak_opt__ls_jump_client %{ edit -existing "$filepath" }" | kak -p $kak_session
+          if echo "$kak_client_list" | grep -qo "$kak_opt__ls_jump_client"; then
+            echo "evaluate-commands -client $kak_opt__ls_jump_client %{ edit -existing %{$filepath} }" | kak -p "$kak_session"
             if [ -n "$TMUX" ]; then
               echo "focus $kak_opt__ls_jump_client"
             fi
           else
-            cmd="kak -c $kak_session -e 'edit -existing "$filepath"; rename-client "$kak_opt__ls_jump_client"'"
+            cmd="kak -c $kak_session -e 'edit -existing %{$filepath}; rename-client %{$kak_opt__ls_jump_client}'"
             if [ -n "$TMUX" ]; then
               tmux split-window -c "$dir" -l "80%" -h "$cmd" > /dev/null
             elif [ -n "$kak_opt_termcmd" ]; then
@@ -161,9 +161,9 @@ provide-module ls %{
         fi
       }
 
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       open "$current_file"
     }
@@ -175,8 +175,8 @@ provide-module ls %{
     evaluate-commands %{
       prompt "Create:" %{
         evaluate-commands %sh{
-          cd "$kak_opt__ls_current_dir"
-          if [ -n "$(echo "$kak_text" | grep '.*/')" ]; then
+          cd "$kak_opt__ls_current_dir" || exit
+          if ! echo "$kak_text" | grep -q '.*/'; then
             mkdir -p "$kak_text"
           else
             DIR_PATH=$(dirname "$kak_text")
@@ -200,7 +200,7 @@ provide-module ls %{
     } \
     %{
       evaluate-commands %sh{
-        if [ ! "$kak_text" = "y" ] || [ ! "$kak_text" = "Y"]; then
+        if [ ! "$kak_text" = "y" ] && [ ! "$kak_text" = "Y" ]; then
           exit
         fi
 
@@ -221,10 +221,10 @@ provide-module ls %{
             remove_file "$path"
           done
         else
-          cd "$kak_opt__ls_current_dir"
+          cd "$kak_opt__ls_current_dir" || exit
           ui="$(eval "$kak_opt__ls_cmd")"
 
-          current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+          current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
           if [ "$current_file" = "./" ]; then
             printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/'}"
@@ -243,9 +243,9 @@ provide-module ls %{
   define-command ls-toggle-select %{
     _ls-assert-buffer
     evaluate-commands %sh{
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "./" ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/'}"
@@ -276,7 +276,6 @@ provide-module ls %{
         count=$((count + 1))
       fi
 
-      files="$([ $count -gt 1 ] && echo 'files' || echo 'file')"
       if [ $count -gt 0 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{info -title '$count selected' %{$(
           eval "set -- $kak_quoted_opt__ls_selected_filepaths"
@@ -303,9 +302,9 @@ provide-module ls %{
   define-command -hidden _ls-get-copy-cut-path -params 1 %{
     evaluate-commands %sh{
       action="$1"
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "./" ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/'}"
@@ -316,7 +315,6 @@ provide-module ls %{
       printf '%s\n' "set-option window _ls_copied_filepaths"
       if [ -n "$kak_quoted_opt__ls_selected_filepaths" ]; then
         eval "set -- $kak_quoted_opt__ls_selected_filepaths"
-        count=$#
         while [ $# -gt 0 ]; do
           path="$1"
           shift
@@ -371,12 +369,11 @@ provide-module ls %{
     evaluate-commands %sh{
       [ -z "$kak_opt__ls_copied_filepaths" ] && exit
 
-      cd "$kak_opt__ls_current_dir"
-      ui="$(eval "$kak_opt__ls_cmd")"
+      cd "$kak_opt__ls_current_dir" || exit
 
       copy() {
-        local src="$1"
-        local dest="$2"
+        src="$1"
+        dest="$2"
         if [ -d "$src" ]; then
           cp -r "$src" "$dest"
         else
@@ -385,7 +382,6 @@ provide-module ls %{
       }
 
       eval "set -- $kak_quoted_opt__ls_copied_filepaths"
-      count=$#
       while [ $# -gt 0 ]; do
         path="$1"
         shift
@@ -451,9 +447,9 @@ provide-module ls %{
   define-command ls-rename -docstring 'Rename a file' %{
     _ls-assert-buffer
     evaluate-commands %sh{
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       if [ "$current_file" = "./" ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir'}"
@@ -465,9 +461,8 @@ provide-module ls %{
     evaluate-commands -save-regs 'f' %{
       prompt -init "%reg{f}" "Rename:" %{
         evaluate-commands %sh{
-        cd "$kak_opt__ls_current_dir"
-          mv "$kak_reg_f" "$kak_text"
-          if [ $? -ne 0 ]; then
+        cd "$kak_opt__ls_current_dir" || exit
+          if ! mv "$kak_reg_f" "$kak_text"; then
             printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Could not rename file, see *debug* buffer'}"
             printf 'fail\n'
           fi
@@ -479,7 +474,7 @@ provide-module ls %{
 
   define-command -hidden _ls-cd-impl -params 2 %{
     evaluate-commands %sh{
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
 
       dir="$1"
       dir="$(printf '%s' "$dir" | sed "s|^~|$HOME|")"
@@ -488,10 +483,8 @@ provide-module ls %{
 
       echo "change-directory '$ret_dir'"
 
-      cd "$dir"
-
       # Doing this as to not need to check that `$dir` is a link
-      if [ $? -ne 0 ]; then
+      if ! cd "$dir"; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Failed to change directory, see *debug* buffer'}"
         printf 'fail\n'
         exit
@@ -537,7 +530,7 @@ provide-module ls %{
       change-directory %opt{_ls_current_dir}
       evaluate-commands %sh{
         if [ -n "$1" ]; then
-          $@ > /dev/null
+          "$@" > /dev/null
           printf 'change-directory "%s"\n' "$kak_reg_d"
           printf "ls-redraw\n"
         else
@@ -555,9 +548,9 @@ provide-module ls %{
 
   define-command ls-copy-path %{
     evaluate-commands %sh{
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       echo "set-register dquote '$kak_opt__ls_current_dir/$current_file'"
     }
@@ -565,9 +558,9 @@ provide-module ls %{
 
   define-command ls-copy-name %{
     evaluate-commands %sh{
-      cd "$kak_opt__ls_current_dir"
+      cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -$kak_cursor_line | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
       echo "set-register dquote '$current_file'"
     }
