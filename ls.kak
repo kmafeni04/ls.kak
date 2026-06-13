@@ -1,5 +1,5 @@
 provide-module ls %{
-  declare-option -docstring "Dircection the ls pane will be opened [left,right,up,down] (TMUX)" str ls_direction "left"
+  declare-option -docstring "Dircection the ls pane is opened [left,right,up,down] (TMUX)" str ls_direction "left"
   declare-option -docstring "Size of the ls pane in percentage (TMUX)" int ls_size 20
 
   declare-option -hidden str _ls_current_dir "."
@@ -610,8 +610,8 @@ provide-module ls %{
     map window normal R ":nop<ret>"
 
     evaluate-commands %sh{
-      echo "add-highlighter -override window/ regex '^($kak_opt__ls_copied_indicator)' 1:red"
-      echo "add-highlighter -override window/ regex '^($kak_opt__ls_selected_indicator)' 1:cyan"
+      printf '%s\n' "add-highlighter -override window/ls_copied_indicator regex '^($kak_opt__ls_copied_indicator)' 1:red"
+      printf '%s\n' "add-highlighter -override window/ls_selected_indicator regex '^($kak_opt__ls_selected_indicator)' 1:cyan"
     }
 
     hook window RawKey .* %{
