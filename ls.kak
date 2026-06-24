@@ -193,7 +193,7 @@ provide-module ls %{
       prompt "Create:" %{
         evaluate-commands %sh{
           cd "$kak_opt__ls_current_dir" || exit
-          if ! echo "$kak_text" | grep -q '.*/'; then
+          if printf '%s' "$kak_text" | grep -q '.*/$'; then
             mkdir -p "$kak_text"
           else
             DIR_PATH=$(dirname "$kak_text")
