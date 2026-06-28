@@ -35,6 +35,7 @@ provide-module ls %{
 
   define-command -override -hidden _ls-redraw-impl -params ..1 %{
     _ls-assert-buffer
+    set-option buffer readonly false
     evaluate-commands %sh{
       [ -n "$1" ] && printf '%s\n' "set-option window _ls_current_dir '$1'"
     }
@@ -71,6 +72,7 @@ provide-module ls %{
       }
 
       execute-keys '%"cRgg'
+      set-option buffer readonly true
     }
 
     evaluate-commands %sh{
@@ -95,7 +97,7 @@ provide-module ls %{
   }
 
   define-command -hidden _ls-enable-impl -params 1 %{
-      edit -scratch -debug "*ls*"
+      edit -scratch "*ls*"
       set-option window filetype ls
       rename-client "%opt{_ls_client}"
       execute-keys "gg"
@@ -591,23 +593,6 @@ provide-module ls %{
 
   hook global WinSetOption filetype=ls %{
     set-option window modelinefmt ''
-
-    map window normal i ":nop<ret>"
-    map window normal I ":nop<ret>"
-    map window normal a ":nop<ret>"
-    map window normal A ":nop<ret>"
-    map window normal o ":nop<ret>"
-    map window normal O ":nop<ret>"
-    map window normal c ":nop<ret>"
-    map window normal d ":nop<ret>"
-    map window normal u ":nop<ret>"
-    map window normal <a-d> ":nop<ret>"
-    map window normal <a-c> ":nop<ret>"
-    map window normal x ":nop<ret>"
-    map window normal y ":nop<ret>"
-    map window normal p ":nop<ret>"
-    map window normal r ":nop<ret>"
-    map window normal R ":nop<ret>"
 
     evaluate-commands %sh{
       printf '%s\n' "add-highlighter -override window/ls_copied_indicator regex '^($kak_opt__ls_copied_indicator)' 1:red"
