@@ -595,6 +595,7 @@ provide-module ls %{
     set-option window modelinefmt ''
 
     evaluate-commands %sh{
+      printf '%s\n' "add-highlighter -override window/ls_directory regex '[^\n]+/' 0:link"
       printf '%s\n' "add-highlighter -override window/ls_copied_indicator regex '^($kak_opt__ls_copied_indicator)' 1:red"
       printf '%s\n' "add-highlighter -override window/ls_selected_indicator regex '^($kak_opt__ls_selected_indicator)' 1:cyan"
     }
