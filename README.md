@@ -1,7 +1,7 @@
 # ls.kak
 Another filebrowser plugin for kakoune
 
-https://github.com/user-attachments/assets/df0a21fe-69d5-43b4-b3ce-3462b3395a81
+![@demo.gif](demo.gif)
 
 ## Dependencies
 - [tmux](https://github.com/tmux/tmux/) (optional)
