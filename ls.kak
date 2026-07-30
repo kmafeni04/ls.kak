@@ -52,7 +52,7 @@ provide-module ls %{
             shift
 
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_copied_indicator\1|")"
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))$|$kak_opt__ls_copied_indicator\1|")"
             fi
           done
         fi
@@ -64,7 +64,7 @@ provide-module ls %{
             shift
 
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))|$kak_opt__ls_selected_indicator\1|")"
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))$|$kak_opt__ls_selected_indicator\1|")"
             fi
           done
         fi
