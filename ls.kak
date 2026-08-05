@@ -514,31 +514,32 @@ provide-module ls %{
     ls-redraw
   }
 
-  define-command -hidden _ls-cd-prompt -params 1 %{
-    prompt -on-abort 'change-directory %arg{1}' \
-    -menu -file-completion \
-    "Directory:" \
-    %{
-      _ls-cd-impl "%val{text}" "%arg{1}"
-    }
-  }
-
-  define-command ls-cd -params ..1 \
-  -docstring 'ls-cd: [<directory>]: Change <directory> of filebrowser. if <directory> is provided, cd there or open prompt' \
+  define-command ls-cd -params 1 \
+  -docstring 'ls-cd: <directory>: Change directory of filebrowser to <directory>' \
   %{
     _ls-assert-buffer
     evaluate-commands -save-regs 'd' %{
       set-register d %sh{pwd}
       change-directory %opt{_ls_current_dir}
-      evaluate-commands %sh{
-        if [ -n "$1" ]; then
-          echo "_ls-cd-impl '$1' '$kak_reg_d'"
-        else
-          echo "_ls-cd-prompt '$kak_reg_d'"
-        fi
-      }
+      _ls-cd-impl %arg{1} %reg{d}
     }
   }
+  complete-command -menu ls-cd shell-script %{
+    cd "$kak_opt__ls_current_dir"
+    input="$1"
+    if [ -z "$input" ]; then
+      ls -1 -a -p -L "." | grep "/$"
+    elif [ -z "${input%/*}" ]; then
+      ls -1 -A -p -L "/" | grep "/$" | (echo "/"; xargs -I {} echo '/{}') | grep "$input"
+    elif [ -d "$input" ]; then
+      input="${input%/}" # remove it to add it back later as it is not always present
+      echo "$input/"
+      ls -1 -A -p -L "$input" | grep "/$" | xargs -I {} echo "$input/{}"
+    elif [ ! "${input%/*}" = "$input" ]; then
+      ls -1 -A -p -L "${input%/*}" | grep "/$" | xargs -I {} echo "${input%/*}/{}" | grep "$input"
+    fi
+  }
+
 
   define-command ls-run -params .. \
   -docstring 'ls-run [<command>]: Run <command> in current ls directory. if <command> is provided, run it or open prompt' \
