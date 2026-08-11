@@ -191,7 +191,7 @@ provide-module ls %{
 
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       open "$current_file"
     }
@@ -252,7 +252,7 @@ provide-module ls %{
           cd "$kak_opt__ls_current_dir" || exit
           ui="$(eval "$kak_opt__ls_cmd")"
 
-          current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+          current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
           if [ "$kak_cursor_line" -eq 1 ]; then
             printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/'}"
@@ -273,7 +273,7 @@ provide-module ls %{
     evaluate-commands %sh{
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/'}"
@@ -332,7 +332,7 @@ provide-module ls %{
       action="$1"
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/'}"
@@ -477,7 +477,7 @@ provide-module ls %{
     evaluate-commands %sh{
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir'}"
@@ -579,7 +579,7 @@ provide-module ls %{
     evaluate-commands %sh{
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       echo "set-register dquote '$kak_opt__ls_current_dir/$current_file'"
     }
@@ -589,7 +589,7 @@ provide-module ls %{
     evaluate-commands %sh{
       cd "$kak_opt__ls_current_dir" || exit
       ui="$(eval "$kak_opt__ls_cmd")"
-      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
+      current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
 
       echo "set-register dquote '$current_file'"
     }
