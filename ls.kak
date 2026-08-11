@@ -254,7 +254,7 @@ provide-module ls %{
 
           current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
-          if [ "$current_file" = "./" ]; then
+          if [ "$kak_cursor_line" -eq 1 ]; then
             printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not delete $kak_opt__ls_current_dir/'}"
             printf 'fail\n'
             exit
@@ -275,7 +275,7 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "./" ]; then
+      if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not select $kak_opt__ls_current_dir/'}"
         printf 'fail\n'
         exit
@@ -334,7 +334,7 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "./" ]; then
+      if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not copy $kak_opt__ls_current_dir/'}"
         printf 'fail\n'
         exit
@@ -479,7 +479,7 @@ provide-module ls %{
       ui="$(eval "$kak_opt__ls_cmd")"
       current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -Po "[\.\w-].*")"
 
-      if [ "$current_file" = "./" ]; then
+      if [ "$kak_cursor_line" -eq 1 ]; then
         printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Can not rename $kak_opt__ls_current_dir'}"
         printf 'fail\n'
         exit
