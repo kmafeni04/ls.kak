@@ -52,7 +52,11 @@ provide-module ls %{
             shift
 
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))$|$kak_opt__ls_copied_indicator\1|")"
+              path_basename="$(basename "$path")"
+              case "$path" in
+                */) path_basename="$path_basename/" ;;
+              esac
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$path_basename)$|$kak_opt__ls_copied_indicator\1|")"
             fi
           done
         fi
@@ -64,7 +68,11 @@ provide-module ls %{
             shift
 
             if [ "$kak_opt__ls_current_dir" = "$(dirname "$path")" ]; then
-              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$(basename "$path"))$|$kak_opt__ls_selected_indicator\1|")"
+              path_basename="$(basename "$path")"
+              case "$path" in
+                */) path_basename="$path_basename/" ;;
+              esac
+              ui="$(printf '%s' "$ui" | sed -E "s|^.(.+$path_basename)$|$kak_opt__ls_selected_indicator\1|")"
             fi
           done
         fi
@@ -75,6 +83,7 @@ provide-module ls %{
       set-option buffer readonly true
     }
 
+    # Jump cursor to last known position in directory
     evaluate-commands %sh{
       eval "set -- $kak_quoted_opt__ls_dir_positions"
       while [ $# -gt 0 ]; do
