@@ -14,6 +14,7 @@ provide-module ls %{
   declare-option -hidden str _ls_copied_indicator "\*"
   declare-option -hidden str _ls_hline_face "default,default+@SecondarySelection"
   declare-option -hidden str-to-str-map _ls_dir_positions # (dir=cursor_line)
+  declare-option -hidden str _ls_files_to_rename
 
   define-command -hidden _ls-assert-buffer %{
     evaluate-commands %sh{
@@ -25,6 +26,9 @@ provide-module ls %{
 
   define-command -hidden -params 1 _ls-jump-client-send-cmd %{
     evaluate-commands -try-client %opt{_ls_jump_client} %arg{1}
+  }
+  define-command -hidden -params 1 _ls-client-send-cmd %{
+    evaluate-commands -try-client %opt{_ls_client} %arg{1}
   }
   define-command -hidden _ls-hline %{
     set-face window PrimaryCursor %opt{_ls_hline_face}
@@ -136,6 +140,7 @@ provide-module ls %{
           printf "fail 'Invalid direction: %s'\n" "$direction"
           exit
         fi
+        #shellcheck disable=SC2086
         tmux split-window -l "$kak_opt_ls_size%" $flags "kak -c $kak_session -e '_ls-enable-impl %{$dir}'" > /dev/null
       else
         echo "new '_ls-enable-impl %{$dir}'"
@@ -452,6 +457,7 @@ provide-module ls %{
         elif [ "$kak_opt__ls_copied_action" = "cut" ]; then
           mv "$path" "$dest"
         fi
+        #shellcheck disable=SC2181
         if [ $? -ne 0 ]; then
           printf '%s\n' "_ls-jump-client-send-cmd %{echo -markup '{Error}Failed to paste file, see *debug* buffer'}"
           printf 'fail\n'
@@ -498,6 +504,75 @@ provide-module ls %{
         ls-redraw
       }
     }
+  }
+  define-command ls-rename-in-editor -docstring 'Rename selected files in editor' %{
+
+    evaluate-commands -save-regs 'f' %{
+      set-register f %sh{
+        if [ -n "$kak_quoted_opt__ls_selected_filepaths" ]; then
+          eval "set -- $kak_quoted_opt__ls_selected_filepaths"
+          while [ $# -gt 0 ]; do
+            printf '%s' "$1///"
+            shift
+          done
+        else
+          cd "$kak_opt__ls_current_dir" || exit
+          ui="$(eval "$kak_opt__ls_cmd")"
+          current_file="$(echo "$ui" | head -"$kak_cursor_line" | tail -1 | grep -o '[.[:alnum:]_-].*')"
+          printf '%s' "$kak_opt__ls_current_dir/$current_file///"
+        fi
+      }
+
+      _ls-jump-client-send-cmd "edit -scratch '*ls-rename*'"
+      _ls-jump-client-send-cmd %{execute-keys '"fRs///<ret>c<ret><esc>gex<a-d>%'}
+      _ls-jump-client-send-cmd %{execute-keys '"fy'}
+      _ls-jump-client-send-cmd %{set-option window _ls_files_to_rename %sh{ printf '%s' "$kak_reg_f" }}
+      _ls-jump-client-send-cmd "execute-keys 'gg'"
+      focus %opt{_ls_jump_client}
+    }
+  }
+
+  define-command ls-rename-in-editor-write -docstring 'Finalize renamed files' %{
+    evaluate-commands %sh{
+      if [ ! "$kak_bufname" = "*ls-rename*" ]; then
+        printf '%s\n' "fail 'Not in "*ls-rename*" buffer'"
+      fi
+    }
+    evaluate-commands %{
+      execute-keys '%_'
+      evaluate-commands %sh{
+        index="$kak_opt__ls_files_to_rename"
+        index_edit="$kak_selection"
+        failed_rename=false
+        #shellcheck disable=SC2046
+        if [ $(printf '%s' "$index" | wc -l) -eq $(printf '%s' "$index_edit" | wc -l) ]; then
+          max=$(($(printf '%s' "$index" | wc -l)+1))
+          counter=1
+          while [ $counter -le $max ]; do
+            a="$(printf '%s' "$index" | sed "${counter}q;d")"
+            b="$(printf '%s' "$index_edit" | sed "${counter}q;d")"
+            counter=$((counter + 1))
+
+            [ "$a" = "$b" ] && continue
+            if [ -e "$b" ]; then
+              failed_rename=true
+              printf "echo -debug 'Failed to rename %s as %s already exists'\n" "$a" "$b"
+              continue
+            fi
+            mv "$a" "$b"
+          done
+        else
+          printf '%s\n' "fail 'ERROR: Number of lines don't match selected files'"
+        fi
+        if [ "$failed_rename" = true ]; then
+          printf '%s\n' "echo -markup '{Error}Failed to rename some files, see *debug* buffer'"
+        fi
+      }
+    }
+    delete-buffer "*ls-rename*"
+    focus %opt{_ls_client}
+    _ls-client-send-cmd "ls-clear"
+    _ls-client-send-cmd "ls-redraw"
   }
 
   define-command -hidden _ls-cd-impl -params 2 %{
@@ -563,6 +638,7 @@ provide-module ls %{
           printf 'change-directory "%s"\n' "$kak_reg_d"
           printf "ls-redraw\n"
         else
+        #shellcheck disable=SC2016
           printf 'prompt -shell-completion "Command:" %%{
             nop %%sh{
               eval "$kak_text"

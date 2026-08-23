@@ -30,6 +30,7 @@ hook global WinSetOption filetype=ls %{
   map window normal x ":ls-cut<ret>"
   map window normal p ":ls-paste<ret>"
   map window normal r ":ls-rename<ret>"
+  map window normal R ":ls-rename-in-editor<ret>"
   map window normal <tab> ":ls-cd<space>"
   map window normal <esc> ":ls-clear<ret>"
   map window normal <semicolon> ":ls-run<ret>"
@@ -40,6 +41,10 @@ hook global WinSetOption filetype=ls %{
   map window ls-copy-info p ":ls-copy-path<ret>" -docstring 'Copy file path'
   map window ls-copy-info n ":ls-copy-name<ret>" -docstring 'Copy file name'
   map window ls-copy-info d ":ls-copy-directory<ret>" -docstring 'Copy $PWD'
+}
+hook global WinCreate \*ls-rename\* %{
+  alias window write ls-rename-in-editor-write
+  alias window w ls-rename-in-editor-write
 }
 ```
 ## References
