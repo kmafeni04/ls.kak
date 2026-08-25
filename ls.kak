@@ -110,7 +110,7 @@ provide-module ls %{
   }
 
   define-command -hidden _ls-enable-impl -params 1 %{
-      edit -scratch "*ls*"
+      edit -debug -scratch "*ls*"
       set-option window filetype ls
       rename-client "%opt{_ls_client}"
       execute-keys "gg"
